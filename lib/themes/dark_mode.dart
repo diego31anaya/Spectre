@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:spectre/constants/app_sizes.dart';
 
 final ThemeData darkMode = ThemeData(
   fontFamily: 'VT323',
@@ -20,7 +21,7 @@ final ThemeData darkMode = ThemeData(
     elevation: 0,
     titleTextStyle: TextStyle(
       fontFamily: 'VT323',
-      fontSize: 32,
+      fontSize: AppFontSizes.heading,
       letterSpacing: 2,
       color: Color(0xFFB9FF4A),
     ),
