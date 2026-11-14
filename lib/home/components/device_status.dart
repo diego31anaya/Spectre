@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:spectre/constants/app_sizes.dart';
 import 'package:spectre/themes/dark_mode.dart';
 
 class DeviceStatus extends StatefulWidget {
@@ -72,12 +73,12 @@ class _DeviceStatusState extends State<DeviceStatus>
         backgroundColor: colors.secondary,
         content: Text(
           message,
-          style: TextStyle(fontSize: 20, color: colors.onPrimary),
+          style: TextStyle(fontSize: AppFontSizes.subtitle, color: colors.onPrimary),
         ),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 4),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(16),
+        margin: const EdgeInsets.all(AppSpacing.md),
         action: showSettings
             ? SnackBarAction(
                 label: 'Settings',
@@ -217,7 +218,7 @@ class _DeviceStatusState extends State<DeviceStatus>
 
     Widget statusRow(String label, bool? ready) {
       return Padding(
-        padding: const EdgeInsets.only(top: 10),
+        padding: const EdgeInsets.only(top: AppSpacing.sm),
         child: SizedBox(
           width: double.infinity,
           child: FilledButton(
@@ -233,7 +234,10 @@ class _DeviceStatusState extends State<DeviceStatus>
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.md,
+              ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -241,7 +245,7 @@ class _DeviceStatusState extends State<DeviceStatus>
                 Text(
                   label,
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: AppFontSizes.subtitle,
                     color: darkMode.colorScheme.primary,
                   ),
                 ),
@@ -254,7 +258,7 @@ class _DeviceStatusState extends State<DeviceStatus>
                       ? 'Ready'
                       : 'Needs Access',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: AppFontSizes.subtitle,
                     color: darkMode.colorScheme.primary,
                   ),
                 ),
@@ -270,7 +274,7 @@ class _DeviceStatusState extends State<DeviceStatus>
       children: [
         Text(
           "Device Status",
-          style: TextStyle(fontSize: 24, color: darkMode.colorScheme.primary),
+          style: TextStyle(fontSize: AppFontSizes.title, color: darkMode.colorScheme.primary),
         ),
         Column(children: [statusRow("Camera", cameraPermission)]),
       ],

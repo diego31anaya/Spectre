@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:spectre/constants/app_sizes.dart';
 
 class PrimaryButton extends StatelessWidget {
   final String text;
@@ -14,7 +15,7 @@ class PrimaryButton extends StatelessWidget {
         onPressed: onPressed,
         child: Text(
           text,
-          style: TextStyle(fontSize: 24),
+          style: TextStyle(fontSize: AppFontSizes.title),
         ),
         style: FilledButton.styleFrom(
           backgroundColor: Theme.of(context).colorScheme.primary,

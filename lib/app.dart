@@ -38,6 +38,7 @@ class _StartPageState extends State<StartPage> {
       body: pages[_currentIndex],
       appBar: AppBar(
         title: Text("SPECTRE"),
+        centerTitle: true,
       ),
       bottomNavigationBar: BottomNavigationBar(
         items: [
