@@ -2,6 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Required -->
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Save photos and videos to your library.</string>
+
+	<!-- Required for iOS 13 or saving to an album -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Save photos and videos to an album.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>We use your camera for the game.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>

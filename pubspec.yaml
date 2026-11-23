@@ -38,6 +38,7 @@ dependencies:
   path_provider: ^2.1.6
   path: ^1.9.1
   permission_handler: ^13.0.2
+  gal: ^3.0.1
 
 dev_dependencies:
   flutter_test:
