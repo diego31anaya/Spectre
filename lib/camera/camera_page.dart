@@ -18,6 +18,14 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   bool isFlashlightOn = false;
   bool isTogglingFlashlight = false;
 
+  bool isNightVisionOn = false;
+
+  void _toggleNightVision() {
+  setState(() {
+    isNightVisionOn = !isNightVisionOn;
+  });
+}
+
   Future<void> _toggleFlashlight() async {
     final controller = cameraController;
 
@@ -112,7 +120,22 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return Center(child: CameraPreview(cameraController!));
+    final preview = CameraPreview(cameraController!);
+
+    return Center(
+      child: isNightVisionOn ?  ColorFiltered(
+        colorFilter: const ColorFilter.matrix([
+          // Mix each pixel into muted green tones with deeper shadows.
+          // Retain red and blue for softer, less neon highlights.
+          0.17, 0.57, 0.06, 0, -12,
+          0.22, 0.74, 0.08, 0, -12,
+          0.16, 0.54, 0.05, 0, -12,
+          // Preserve opacity.
+          0, 0, 0, 1, 0,
+        ]),
+        child: preview,
+       ) : preview,
+    );
   }
 
   @override
@@ -134,12 +157,14 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
                 Expanded(child: _cameraView()),
                 SignalStatus(),
                 CameraButtons(
+                  isNightVisionOn: isNightVisionOn,
                   isFlashlightOn: isFlashlightOn,
                   onToggleFlashlight:
                       cameraController?.value.isInitialized == true &&
                           !isTogglingFlashlight
                       ? _toggleFlashlight
                       : null,
+                  onToggleNightVision: _toggleNightVision,
                 ),
               ],
             ),
