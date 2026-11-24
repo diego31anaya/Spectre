@@ -1,10 +1,12 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:gal/gal.dart';
-import 'package:spectre/camera/components/camera_buttons.dart';
+import 'package:spectre/camera/components/buttons/camera_buttons.dart';
 import 'package:spectre/camera/components/photo_review_controls.dart';
 import 'package:spectre/camera/components/signal_status.dart';
 import 'package:spectre/constants/app_sizes.dart';
+import 'package:spectre/services/ghost_overlay.dart';
+import 'package:spectre/services/photo_storage.dart';
 
 import 'dart:io';
 
@@ -79,30 +81,51 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
 
     setState(() => isCapturing = true);
 
+    XFile? ghostPhoto;
+
     try {
       final picture = await controller.takePicture();
+
+      ghostPhoto = await GhostOverlay.apply(picture);
+
+      final savedPhoto = await PhotoStorage.savePhoto(ghostPhoto);
+
       if (!mounted) return;
 
-      setState(() => capturedPhoto = picture);
+      setState(() => capturedPhoto = XFile(savedPhoto.path));
 
-      await Gal.putImage(picture.path);
+      await Gal.putImage(savedPhoto.path);
     } on CameraException {
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Unable to take the photo.')),
       );
     } on GalException {
       if (!mounted) return;
 
-      // Resets the UI to go back to the camera if there is no saved photo.
-      setState(() => capturedPhoto = null);
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Photo taken, but gallery saving failed.'),
+          content: Text(
+            'Photo saved to Collection, but gallery saving failed.',
+          ),
         ),
       );
+    } catch (_) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to process or save the photo.')),
+      );
     } finally {
+      // The collection has its own copy, so remove the temporary composite.
+      if (ghostPhoto != null) {
+        try {
+          await File(ghostPhoto.path).delete();
+        } on FileSystemException {
+          // Temporary-file cleanup should not interrupt the camera.
+        }
+      }
       if (mounted) {
         setState(() => isCapturing = false);
       }
@@ -193,6 +216,12 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     );
   }
 
+  void _keepScanning() {
+    if (isCapturing) return;
+
+    setState(() => capturedPhoto = null);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -210,27 +239,30 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
               spacing: AppSpacing.sm,
               children: [
                 Expanded(child: _cameraView()),
-                if (capturedPhoto == null) ... [
-                SignalStatus(),
-                CameraButtons(
-                  isNightVisionOn: isNightVisionOn,
-                  isFlashlightOn: isFlashlightOn,
-                  onToggleFlashlight:
-                      cameraController?.value.isInitialized == true &&
-                          !isTogglingFlashlight
-                      ? _toggleFlashlight
-                      : null,
-                  onToggleNightVision: _toggleNightVision,
-                  onCaptured:
-                      cameraController?.value.isInitialized == true &&
-                          !isCapturing &&
-                          capturedPhoto == null
-                      ? _capturePhoto
-                      : null,
-                ),
+                if (capturedPhoto == null) ...[
+                  SignalStatus(),
+                  CameraButtons(
+                    isNightVisionOn: isNightVisionOn,
+                    isFlashlightOn: isFlashlightOn,
+                    onToggleFlashlight:
+                        cameraController?.value.isInitialized == true &&
+                            !isTogglingFlashlight
+                        ? _toggleFlashlight
+                        : null,
+                    onToggleNightVision: _toggleNightVision,
+                    onCaptured:
+                        cameraController?.value.isInitialized == true &&
+                            !isCapturing &&
+                            capturedPhoto == null
+                        ? _capturePhoto
+                        : null,
+                  ),
                 ] else ...[
-                  PhotoReviewControls(onViewCollection: widget.onViewCollection)
-                ]
+                  PhotoReviewControls(
+                    onViewCollection: widget.onViewCollection,
+                    onKeepScanning: _keepScanning,
+                  ),
+                ],
               ],
             ),
           ),
