@@ -1,11 +1,19 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import 'package:spectre/camera/components/camera_buttons.dart';
+import 'package:gal/gal.dart';
+import 'package:spectre/camera/components/buttons/camera_buttons.dart';
+import 'package:spectre/camera/components/photo_review_controls.dart';
 import 'package:spectre/camera/components/signal_status.dart';
 import 'package:spectre/constants/app_sizes.dart';
+import 'package:spectre/services/ghost_overlay.dart';
+import 'package:spectre/services/photo_storage.dart';
+
+import 'dart:io';
 
 class CameraPage extends StatefulWidget {
-  const CameraPage({super.key});
+  final VoidCallback onViewCollection;
+
+  const CameraPage({super.key, required this.onViewCollection});
 
   @override
   State<CameraPage> createState() => _CameraPageState();
@@ -17,6 +25,17 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
 
   bool isFlashlightOn = false;
   bool isTogglingFlashlight = false;
+
+  bool isNightVisionOn = false;
+
+  XFile? capturedPhoto;
+  bool isCapturing = false;
+
+  void _toggleNightVision() {
+    setState(() {
+      isNightVisionOn = !isNightVisionOn;
+    });
+  }
 
   Future<void> _toggleFlashlight() async {
     final controller = cameraController;
@@ -46,6 +65,69 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     } finally {
       if (mounted) {
         setState(() => isTogglingFlashlight = false);
+      }
+    }
+  }
+
+  Future<void> _capturePhoto() async {
+    final controller = cameraController;
+
+    if (controller == null ||
+        !controller.value.isInitialized ||
+        isCapturing ||
+        capturedPhoto != null) {
+      return;
+    }
+
+    setState(() => isCapturing = true);
+
+    XFile? ghostPhoto;
+
+    try {
+      final picture = await controller.takePicture();
+
+      ghostPhoto = await GhostOverlay.apply(picture);
+
+      final savedPhoto = await PhotoStorage.savePhoto(ghostPhoto);
+
+      if (!mounted) return;
+
+      setState(() => capturedPhoto = XFile(savedPhoto.path));
+
+      await Gal.putImage(savedPhoto.path);
+    } on CameraException {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to take the photo.')),
+      );
+    } on GalException {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Photo saved to Collection, but gallery saving failed.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to process or save the photo.')),
+      );
+    } finally {
+      // The collection has its own copy, so remove the temporary composite.
+      if (ghostPhoto != null) {
+        try {
+          await File(ghostPhoto.path).delete();
+        } on FileSystemException {
+          // Temporary-file cleanup should not interrupt the camera.
+        }
+      }
+      if (mounted) {
+        setState(() => isCapturing = false);
       }
     }
   }
@@ -107,12 +189,37 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   }
 
   Widget _cameraView() {
-    if (cameraController == null ||
-        cameraController?.value.isInitialized == false) {
+    if (capturedPhoto == null &&
+        (cameraController == null || !cameraController!.value.isInitialized)) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return Center(child: CameraPreview(cameraController!));
+    final Widget preview = capturedPhoto != null
+        ? Image.file(File(capturedPhoto!.path), fit: BoxFit.contain)
+        : CameraPreview(cameraController!);
+
+    return Center(
+      child: isNightVisionOn
+          ? ColorFiltered(
+              colorFilter: const ColorFilter.matrix([
+                // Mix each pixel into muted green tones with deeper shadows.
+                // Retain red and blue for softer, less neon highlights.
+                0.17, 0.57, 0.06, 0, -12,
+                0.22, 0.74, 0.08, 0, -12,
+                0.16, 0.54, 0.05, 0, -12,
+                // Preserve opacity.
+                0, 0, 0, 1, 0,
+              ]),
+              child: preview,
+            )
+          : preview,
+    );
+  }
+
+  void _keepScanning() {
+    if (isCapturing) return;
+
+    setState(() => capturedPhoto = null);
   }
 
   @override
@@ -132,15 +239,30 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
               spacing: AppSpacing.sm,
               children: [
                 Expanded(child: _cameraView()),
-                SignalStatus(),
-                CameraButtons(
-                  isFlashlightOn: isFlashlightOn,
-                  onToggleFlashlight:
-                      cameraController?.value.isInitialized == true &&
-                          !isTogglingFlashlight
-                      ? _toggleFlashlight
-                      : null,
-                ),
+                if (capturedPhoto == null) ...[
+                  SignalStatus(),
+                  CameraButtons(
+                    isNightVisionOn: isNightVisionOn,
+                    isFlashlightOn: isFlashlightOn,
+                    onToggleFlashlight:
+                        cameraController?.value.isInitialized == true &&
+                            !isTogglingFlashlight
+                        ? _toggleFlashlight
+                        : null,
+                    onToggleNightVision: _toggleNightVision,
+                    onCaptured:
+                        cameraController?.value.isInitialized == true &&
+                            !isCapturing &&
+                            capturedPhoto == null
+                        ? _capturePhoto
+                        : null,
+                  ),
+                ] else ...[
+                  PhotoReviewControls(
+                    onViewCollection: widget.onViewCollection,
+                    onKeepScanning: _keepScanning,
+                  ),
+                ],
               ],
             ),
           ),
