@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:spectre/components/primary_button.dart';
 import 'package:spectre/constants/app_sizes.dart';
 
-import '/camera/camera_page.dart';
 import 'components/device_status.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final VoidCallback onOpenCamera;
+
+  const HomePage({super.key, required this.onOpenCamera});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -29,14 +30,7 @@ class _HomePageState extends State<HomePage> {
                 DeviceStatus(),
                 PrimaryButton(
                   text: "Initialize Camera",
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => CameraPage(),
-                      ),
-                    );
-                  },
+                  onPressed: widget.onOpenCamera,
                 ),
               ],
             ),

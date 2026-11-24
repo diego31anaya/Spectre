@@ -1,18 +1,17 @@
 import 'themes/dark_mode.dart';
+
 import 'package:flutter/material.dart';
+
 import 'collection/collection_page.dart';
 import 'home/home_page.dart';
-
+import 'camera/camera_page.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      theme: darkMode,
-      home: StartPage()
-    );
+    return MaterialApp(theme: darkMode, home: StartPage());
   }
 }
 
@@ -26,31 +25,45 @@ class StartPage extends StatefulWidget {
 class _StartPageState extends State<StartPage> {
   int _currentIndex = 0;
 
-  List<Widget> pages = [
-    HomePage(),
-    CollectionPage(),
-  ];
+ List<Widget> get pages => [
+  HomePage(onOpenCamera: _openCamera),
+  CollectionPage(),
+];
 
+  void _showCollection() {
+    setState(() => _currentIndex = 1);
+  }
+
+  void _openCamera() {
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => CameraPage(
+          onViewCollection: () {
+            Navigator.pop(context);
+            _showCollection();
+          },
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: pages[_currentIndex],
-      appBar: AppBar(
-        title: Text("SPECTRE"),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: Text("SPECTRE"), centerTitle: true),
       bottomNavigationBar: BottomNavigationBar(
         items: [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
             activeIcon: Icon(Icons.home),
-            label: "Home"
+            label: "Home",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.collections_outlined),
             activeIcon: Icon(Icons.collections),
-            label: "Collection"
+            label: "Collection",
           ),
         ],
         currentIndex: _currentIndex,
@@ -59,7 +72,7 @@ class _StartPageState extends State<StartPage> {
             _currentIndex = index;
           });
         },
-        ),
+      ),
     );
   }
 }

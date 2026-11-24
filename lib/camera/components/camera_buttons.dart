@@ -6,8 +6,9 @@ class CameraButtons extends StatefulWidget {
   final bool isNightVisionOn;
   final VoidCallback? onToggleFlashlight;
   final VoidCallback? onToggleNightVision;
+  final VoidCallback? onCaptured;
 
-  const CameraButtons({super.key, required this.isFlashlightOn, required this.isNightVisionOn, required this.onToggleFlashlight, required this.onToggleNightVision});
+  const CameraButtons({super.key, required this.isFlashlightOn, required this.isNightVisionOn, required this.onToggleFlashlight, required this.onToggleNightVision, required this.onCaptured});
 
   @override
   State<CameraButtons> createState() => _CameraButtonsState();
@@ -17,7 +18,7 @@ class _CameraButtonsState extends State<CameraButtons> {
   Widget _captureButton() {
     final colors = Theme.of(context).colorScheme;
     return IconButton.filled(
-      onPressed: () {},
+      onPressed: widget.onCaptured,
       icon: const Icon(Icons.camera_alt_outlined),
       iconSize: 28,
       style: IconButton.styleFrom(
