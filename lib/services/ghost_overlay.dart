@@ -8,6 +8,13 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 class GhostOverlay {
+  static const nightVisionFilter = ui.ColorFilter.matrix([
+    0.17, 0.57, 0.06, 0, -12,
+    0.22, 0.74, 0.08, 0, -12,
+    0.16, 0.54, 0.05, 0, -12,
+    0, 0, 0, 1, 0,
+  ]);
+
   static Future<String> _randomGhostAsset() async {
     final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
     final ghosts = manifest.listAssets().where((asset) {
@@ -34,7 +41,10 @@ class GhostOverlay {
     }
   }
 
-  static Future<XFile> apply(XFile photo) async {
+  static Future<XFile> apply(
+    XFile photo, {
+    bool nightVision = false,
+  }) async {
     final ghostAsset = await _randomGhostAsset();
     final background = await _decodeImage(await photo.readAsBytes());
 
@@ -53,6 +63,14 @@ class GhostOverlay {
 
       final recorder = ui.PictureRecorder();
       final canvas = ui.Canvas(recorder);
+
+      // Filter the photo and ghost together when this layer is restored.
+      if (nightVision) {
+        canvas.saveLayer(
+          ui.Rect.fromLTWH(0, 0, width, height),
+          ui.Paint()..colorFilter = nightVisionFilter,
+        );
+      }
 
       // Draw the captured photo at its original size.
       canvas.drawImage(background, ui.Offset.zero, ui.Paint());
@@ -86,6 +104,10 @@ class GhostOverlay {
         destination,
         ui.Paint()..filterQuality = ui.FilterQuality.medium,
       );
+
+      if (nightVision) {
+        canvas.restore();
+      }
 
       drawing = recorder.endRecording();
       combined = await drawing.toImage(background.width, background.height);

@@ -81,12 +81,16 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
 
     setState(() => isCapturing = true);
 
+    final nightVision = isNightVisionOn;
     XFile? ghostPhoto;
 
     try {
       final picture = await controller.takePicture();
 
-      ghostPhoto = await GhostOverlay.apply(picture);
+      ghostPhoto = await GhostOverlay.apply(
+        picture,
+        nightVision: nightVision,
+      );
 
       final savedPhoto = await PhotoStorage.savePhoto(ghostPhoto);
 
@@ -199,17 +203,9 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
         : CameraPreview(cameraController!);
 
     return Center(
-      child: isNightVisionOn
+      child: isNightVisionOn && capturedPhoto == null
           ? ColorFiltered(
-              colorFilter: const ColorFilter.matrix([
-                // Mix each pixel into muted green tones with deeper shadows.
-                // Retain red and blue for softer, less neon highlights.
-                0.17, 0.57, 0.06, 0, -12,
-                0.22, 0.74, 0.08, 0, -12,
-                0.16, 0.54, 0.05, 0, -12,
-                // Preserve opacity.
-                0, 0, 0, 1, 0,
-              ]),
+              colorFilter: GhostOverlay.nightVisionFilter,
               child: preview,
             )
           : preview,
