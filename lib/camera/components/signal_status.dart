@@ -1,38 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:spectre/constants/app_sizes.dart';
 
-class SignalStatus extends StatefulWidget {
-  const SignalStatus({super.key});
+class SignalStatus extends StatelessWidget {
+  final double signal;
+  final String label;
+  final String message;
 
-  @override
-  State<SignalStatus> createState() => _SignalStatusState();
-}
+  const SignalStatus({
+    super.key,
+    required this.signal,
+    required this.label,
+    required this.message,
+  });
 
-class _SignalStatusState extends State<SignalStatus> {
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
 
-    return Container(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("Signal", style: TextStyle(fontSize: AppFontSizes.subtitle, height: 1.0)),
-          Text(
-            "High",
-            style: TextStyle(
-              color: colors.primary,
-              fontSize: AppFontSizes.title,
-            ),
-          ),
-          LinearProgressIndicator(
-            value: 0.85,
-            backgroundColor: colors.tertiary,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Signal",
+          style: TextStyle(fontSize: AppFontSizes.subtitle, height: 1.0),
+        ),
+        Text(
+          label,
+          style: TextStyle(
             color: colors.primary,
+            fontSize: AppFontSizes.title,
           ),
-          Center(child: Text("Hold steady. It's close.", style: TextStyle(fontSize: AppFontSizes.text),)),
-        ],
-      ),
+        ),
+        LinearProgressIndicator(
+          value: signal,
+          backgroundColor: colors.tertiary,
+          color: colors.primary,
+        ),
+        Center(
+          child: Text(
+            message,
+            style: TextStyle(fontSize: AppFontSizes.text),
+          ),
+        ),
+      ],
     );
   }
 }
