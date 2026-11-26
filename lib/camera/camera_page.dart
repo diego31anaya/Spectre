@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math';
+
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:gal/gal.dart';
@@ -9,6 +12,10 @@ import 'package:spectre/services/ghost_overlay.dart';
 import 'package:spectre/services/photo_storage.dart';
 
 import 'dart:io';
+
+import 'package:flutter/services.dart';
+
+enum EncounterPhase { searching, approaching, nearby }
 
 class CameraPage extends StatefulWidget {
   final VoidCallback onViewCollection;
@@ -30,6 +37,99 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
 
   XFile? capturedPhoto;
   bool isCapturing = false;
+
+  Timer? _signalTimer;
+  final Random _random = Random();
+
+  EncounterPhase _phase = EncounterPhase.searching;
+
+  double _signal = 0.1;
+  int _phaseTicks = 0;
+  int _phaseDuration = 0;
+
+  bool _isAppActive = true;
+
+  String get _signalLabel {
+    return switch (_phase) {
+      EncounterPhase.searching => 'Low',
+      EncounterPhase.approaching => 'Rising',
+      EncounterPhase.nearby => 'High',
+    };
+  }
+
+  String get _signalMessage {
+    return switch (_phase) {
+      EncounterPhase.searching => 'Scanning for activity...',
+      EncounterPhase.approaching => 'Something is getting closer...',
+      EncounterPhase.nearby => "It's close. Capture now!",
+    };
+  }
+
+  // Updates the phase values
+  void _enterPhase(EncounterPhase phase) {
+    _phase = phase;
+    _phaseTicks = 0;
+
+    // Two ticks per second because the timer runs every 0.5 seconds
+    _phaseDuration = switch (phase) {
+      EncounterPhase.searching => (5 + _random.nextInt(6)) * 2,
+      EncounterPhase.approaching => (3 + _random.nextInt(3)) * 2,
+      EncounterPhase.nearby => (3 + _random.nextInt(2)) * 2,
+    };
+
+    _signal = switch (phase) {
+      EncounterPhase.searching => 0.1,
+      EncounterPhase.approaching => 0.35,
+      EncounterPhase.nearby => 0.9,
+    };
+  }
+
+  void _startEncounter() {
+    _signalTimer?.cancel();
+
+    if (!mounted ||
+        !_isAppActive ||
+        isCapturing ||
+        capturedPhoto != null ||
+        cameraController?.value.isInitialized != true) {
+      return;
+    }
+
+    setState(() {
+      _enterPhase(EncounterPhase.searching);
+    });
+
+    _signalTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (!mounted ||
+          !_isAppActive ||
+          isCapturing ||
+          capturedPhoto != null ||
+          cameraController?.value.isInitialized != true) {
+        _signalTimer?.cancel();
+        return;
+      }
+
+      setState(() {
+        _phaseTicks++;
+
+        if (_phaseTicks >= _phaseDuration) {
+          final nextPhase = switch (_phase) {
+            EncounterPhase.searching => EncounterPhase.approaching,
+            EncounterPhase.approaching => EncounterPhase.nearby,
+            EncounterPhase.nearby => EncounterPhase.searching,
+          };
+          _enterPhase(nextPhase);
+        }
+
+        _signal = switch (_phase) {
+          EncounterPhase.searching => 0.1 + _random.nextDouble() * 0.25,
+          EncounterPhase.approaching =>
+            0.35 + 0.45 * (_phaseTicks / _phaseDuration),
+          EncounterPhase.nearby => 0.85 + _random.nextDouble() * 0.15,
+        };
+      });
+    });
+  }
 
   void _toggleNightVision() {
     setState(() {
@@ -72,67 +172,103 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   Future<void> _capturePhoto() async {
     final controller = cameraController;
 
-    if (controller == null ||
+    if (!_isAppActive ||
+        controller == null ||
         !controller.value.isInitialized ||
         isCapturing ||
         capturedPhoto != null) {
       return;
     }
 
-    setState(() => isCapturing = true);
+    final caughtGhost = _phase == EncounterPhase.nearby;
 
     final nightVision = isNightVisionOn;
     XFile? ghostPhoto;
 
-    try {
-      final picture = await controller.takePicture();
+    if (caughtGhost) {
+      try {
+        _signalTimer?.cancel();
+        setState(() => isCapturing = true);
 
-      ghostPhoto = await GhostOverlay.apply(
-        picture,
-        nightVision: nightVision,
-      );
+        final picture = await controller.takePicture();
 
-      final savedPhoto = await PhotoStorage.savePhoto(ghostPhoto);
+        ghostPhoto = await GhostOverlay.apply(
+          picture,
+          nightVision: nightVision,
+        );
 
-      if (!mounted) return;
+        final savedPhoto = await PhotoStorage.savePhoto(ghostPhoto);
 
-      setState(() => capturedPhoto = XFile(savedPhoto.path));
+        if (!mounted) return;
 
-      await Gal.putImage(savedPhoto.path);
-    } on CameraException {
-      if (!mounted) return;
+        setState(() => capturedPhoto = XFile(savedPhoto.path));
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to take the photo.')),
-      );
-    } on GalException {
-      if (!mounted) return;
+        await Gal.putImage(savedPhoto.path);
+      } on CameraException {
+        if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Photo saved to Collection, but gallery saving failed.',
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to take the photo.')),
+        );
+      } on GalException {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Photo saved to Collection, but gallery saving failed.',
+            ),
           ),
-        ),
-      );
-    } catch (_) {
-      if (!mounted) return;
+        );
+      } catch (_) {
+        if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to process or save the photo.')),
-      );
-    } finally {
-      // The collection has its own copy, so remove the temporary composite.
-      if (ghostPhoto != null) {
-        try {
-          await File(ghostPhoto.path).delete();
-        } on FileSystemException {
-          // Temporary-file cleanup should not interrupt the camera.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to process or save the photo.')),
+        );
+      } finally {
+        // The collection has its own copy, so remove the temporary composite.
+        if (ghostPhoto != null) {
+          try {
+            await File(ghostPhoto.path).delete();
+          } on FileSystemException {
+            // Temporary-file cleanup should not interrupt the camera.
+          }
+        }
+        if (mounted) {
+          setState(() => isCapturing = false);
+
+          if (capturedPhoto == null) {
+            _startEncounter();
+          }
         }
       }
-      if (mounted) {
-        setState(() => isCapturing = false);
-      }
+    } else {
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.removeCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'No ghost nearby. Wait for a high signal!',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.primary,
+              fontSize: AppFontSizes.text,
+            ),
+          ),
+          backgroundColor: Colors.black,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(AppSpacing.lg),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          shape: const StadiumBorder(),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      await HapticFeedback.heavyImpact();
     }
   }
 
@@ -145,6 +281,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _signalTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     cameraController?.dispose();
     super.dispose();
@@ -152,6 +289,12 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _isAppActive = state == AppLifecycleState.resumed;
+
+    if (!_isAppActive) {
+      _signalTimer?.cancel();
+    }
+
     if (state == AppLifecycleState.inactive) {
       final controller = cameraController;
 
@@ -188,6 +331,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
         if (!mounted) return;
         // This causes the widget tree to rebuild
         setState(() {});
+        _startEncounter();
       });
     }
   }
@@ -216,6 +360,8 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     if (isCapturing) return;
 
     setState(() => capturedPhoto = null);
+
+    _startEncounter();
   }
 
   @override
@@ -236,7 +382,11 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
               children: [
                 Expanded(child: _cameraView()),
                 if (capturedPhoto == null) ...[
-                  SignalStatus(),
+                  SignalStatus(
+                    signal: _signal,
+                    label: _signalLabel,
+                    message: _signalMessage,
+                  ),
                   CameraButtons(
                     isNightVisionOn: isNightVisionOn,
                     isFlashlightOn: isFlashlightOn,
