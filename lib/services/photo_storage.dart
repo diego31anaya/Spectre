@@ -5,7 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 class PhotoStorage {
-  static Future<Directory> _collectionDirectory() async {
+  Future<Directory> _collectionDirectory() async {
     // Get the path where we store data in this app.
     final documents = await getApplicationDocumentsDirectory();
 
@@ -18,7 +18,7 @@ class PhotoStorage {
     return directory;
   }
 
-  static Future<File> savePhoto(XFile photo) async {
+  Future<File> savePhoto(XFile photo) async {
     final directory = await _collectionDirectory();
     final timestamp = DateTime.now().microsecondsSinceEpoch;
     final extension = p.extension(photo.path);
@@ -29,7 +29,7 @@ class PhotoStorage {
     return File(photo.path).copy(destination);
   }
 
-  static Future<List<File>> loadPhotos() async {
+  Future<List<File>> loadPhotos() async {
     final directory = await _collectionDirectory();
     final entries = await directory.list(followLinks: false).toList();
 
@@ -43,7 +43,7 @@ class PhotoStorage {
     return photos;
   }
 
-  static Future<void> deletePhoto(File photo) async {
+  Future<void> deletePhoto(File photo) async {
     await photo.delete();
   }
 }

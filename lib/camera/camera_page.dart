@@ -9,7 +9,8 @@ import 'package:spectre/camera/components/photo_review_controls.dart';
 import 'package:spectre/camera/components/signal_status.dart';
 import 'package:spectre/constants/app_sizes.dart';
 import 'package:spectre/services/ghost_overlay.dart';
-import 'package:spectre/services/photo_storage.dart';
+import 'package:provider/provider.dart';
+import 'package:spectre/services/photo_repository.dart';
 
 import 'dart:io';
 
@@ -170,6 +171,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   }
 
   Future<void> _capturePhoto() async {
+    final photoRepository = context.read<PhotoRepository>();
     final controller = cameraController;
 
     if (!_isAppActive ||
@@ -197,7 +199,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
           nightVision: nightVision,
         );
 
-        final savedPhoto = await PhotoStorage.savePhoto(ghostPhoto);
+        final savedPhoto = await photoRepository.savePhoto(ghostPhoto);
 
         if (!mounted) return;
 
