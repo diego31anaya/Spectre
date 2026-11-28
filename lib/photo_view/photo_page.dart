@@ -17,21 +17,41 @@ class PhotoPage extends StatefulWidget {
 }
 
 class _PhotoPageState extends State<PhotoPage> {
-  bool _isDeleting = false;
 
   Future<void> _deletePhoto() async {
-    if (_isDeleting) return;
 
     final repository = context.read<PhotoRepository>();
 
-    setState(() => _isDeleting = true);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Delete photo?'),
+          content: const Text(
+            'This permanently removes the photo from Spectre. '
+            'Your phone’s gallery copy will remain.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
 
     try {
       await repository.deletePhoto(widget.photo);
     } catch (_) {
       if (!mounted) return;
-
-      setState(() => _isDeleting = false);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -107,7 +127,7 @@ class _PhotoPageState extends State<PhotoPage> {
                   },
                 ),
                 TextButton(
-                  onPressed: _isDeleting ? null : _deletePhoto,
+                  onPressed: _deletePhoto,
                   child: const Text(
                     'Delete',
                     style: TextStyle(
